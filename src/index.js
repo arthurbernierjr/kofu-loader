@@ -4,17 +4,17 @@
 */
 import validateOptions from 'schema-utils';
 
-import coffeescript from 'coffeescript';
+import mambascript from 'mambascript';
 import loaderUtils from 'loader-utils';
 
 import schema from './options.json';
-import CoffeeScriptError from './CoffeeScriptError';
+import MambaScriptError from './MambaScriptError';
 
 export default function loader(source) {
   const options = loaderUtils.getOptions(this);
 
   validateOptions(schema, options, {
-    name: 'CoffeeScript Loader',
+    name: 'MambaScript Loader',
     baseDataPath: 'options',
   });
 
@@ -25,13 +25,62 @@ export default function loader(source) {
   let result;
 
   try {
-    result = coffeescript.compile(source, {
-      ...{ sourceMap: useSourceMap, bare: true },
+    const msAST = mambascript.parse(source, {
+      ...{
+        bare: true,
+      },
       ...options,
-      ...{ filename: this.resourcePath },
+      ...{
+        filename: this.resourcePath,
+      },
     });
+
+    const jsAST = mambascript.compile(msAST, {
+      ...{
+        bare: true,
+      },
+      ...options,
+      ...{
+        filename: this.resourcePath,
+      },
+    });
+
+    if (useSourceMap) {
+      const code = mambascript.jsEsm(jsAST, {
+        ...{
+          bare: true,
+        },
+        ...options,
+        ...{
+          filename: this.resourcePath,
+        },
+      });
+      const sourceMap = mambascript.sourceMap(jsAST, {
+        ...{
+          bare: true,
+        },
+        ...options,
+        ...{
+          filename: this.resourcePath,
+        },
+      });
+      result = {
+        js: code,
+        v3SourceMap: sourceMap,
+      };
+    } else {
+      result = mambascript.jsEsm(jsAST, {
+        ...{
+          bare: true,
+        },
+        ...options,
+        ...{
+          filename: this.resourcePath,
+        },
+      });
+    }
   } catch (error) {
-    callback(new CoffeeScriptError(error));
+    callback(new MambaScriptError(error));
 
     return;
   }
